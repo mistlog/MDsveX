@@ -8,7 +8,7 @@ import extract_frontmatter from 'remark-frontmatter';
 import remark2rehype from 'remark-rehype';
 import hast_to_html from '@starptech/prettyhtml-hast-to-html';
 
-import { mdsvex_parser } from './parsers/';
+import { mdsvex_parser } from './_parsers';
 import {
 	default_frontmatter,
 	parse_frontmatter,
