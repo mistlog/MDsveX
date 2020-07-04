@@ -1,3 +1,5 @@
+import { void_els } from './void_els';
+
 // custom mdsvex parse
 // handles html-ish and { expression } syntax
 
@@ -43,6 +45,9 @@ export function remark_mdsvex(eat, value, silent) {
 		}
 
 		if (/>/.test(value[index])) {
+			if (void_els.includes(node.name)) {
+				node.self_closing = true;
+			}
 			node.pos.push(index);
 			break;
 		}

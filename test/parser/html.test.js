@@ -25,4 +25,19 @@ html('parses a self-closing element', () => {
 	});
 });
 
+html('parses a void element without a closing slash', () => {
+	const result = remark_mdsvex(eat, `<img>`);
+	assert.equal(result, {
+		value: `<img>`,
+		node: {
+			type: 'el',
+			name: 'img',
+			children: [],
+			attrs: [],
+			self_closing: true,
+			pos: [0, 4],
+		},
+	});
+});
+
 html.run();
