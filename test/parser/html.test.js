@@ -1,10 +1,28 @@
 import { suite } from 'uvu';
 import * as assert from 'uvu/assert';
 
-import { parser } from '../../src/parser/';
+import { remark_mdsvex } from '../../src/parser/';
 
 const html = suite('html');
 
-html('parses a simple html element', () => {});
+const eat = value => node => ({
+	value,
+	node,
+});
+
+html('parses a self-closing element', () => {
+	const result = remark_mdsvex(eat, `<img />`);
+	assert.equal(result, {
+		value: `<img />`,
+		node: {
+			type: 'el',
+			name: 'img',
+			children: [],
+			attrs: [],
+			self_closing: true,
+			pos: [0, 6],
+		},
+	});
+});
 
 html.run();
