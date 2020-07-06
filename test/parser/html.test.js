@@ -62,4 +62,60 @@ html('parses attributes', () => {
 	});
 });
 
+html('parses multiple attributes', () => {
+	const result = remark_mdsvex(eat, `<img class="myclass" class="myclass" />`);
+	assert.equal(result, {
+		value: `<img class="myclass" class="myclass" />`,
+		node: {
+			type: 'el',
+			name: 'img',
+			children: [],
+			attrs: [
+				{
+					type: 'attr',
+					pos: [5, 19],
+					value: 'myclass',
+					name: 'class',
+				},
+				{
+					type: 'attr',
+					pos: [21, 35],
+					value: 'myclass',
+					name: 'class',
+				},
+			],
+			self_closing: true,
+			pos: [0, 38],
+		},
+	});
+});
+
+html('parses multiple attributes on a void element', () => {
+	const result = remark_mdsvex(eat, `<img class="myclass" class="myclass" >`);
+	assert.equal(result, {
+		value: `<img class="myclass" class="myclass" >`,
+		node: {
+			type: 'el',
+			name: 'img',
+			children: [],
+			attrs: [
+				{
+					type: 'attr',
+					pos: [5, 19],
+					value: 'myclass',
+					name: 'class',
+				},
+				{
+					type: 'attr',
+					pos: [21, 35],
+					value: 'myclass',
+					name: 'class',
+				},
+			],
+			self_closing: true,
+			pos: [0, 37],
+		},
+	});
+});
+
 html.run();
