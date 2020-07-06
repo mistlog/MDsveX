@@ -14,6 +14,7 @@ export function remark_mdsvex(eat, value, silent) {
 	let current;
 	const state = [];
 	let in_quote = false;
+	let curly_depth = 0;
 
 	if (!/^\s*[<{}]/.test(value)) return;
 	if (silent) return true;
@@ -83,12 +84,12 @@ export function remark_mdsvex(eat, value, silent) {
 					continue run;
 				} else current.value += value[index];
 			} else {
-				// if (/\{/.test(source[index])) {
-				// 	state = 'exp_value';
-				// 	current.exp = true;
-				// 	index++;
-				// 	continue run;
-				// }
+				if (/\{/.test(value[index])) {
+					state.push('expression');
+					current.type = 'expression';
+					index++;
+					continue run;
+				}
 				if (/"/.test(value[index])) {
 					in_quote = true;
 					index++;
@@ -99,6 +100,21 @@ export function remark_mdsvex(eat, value, silent) {
 					current.pos.push(index - 1);
 				} else current.value += value[index];
 			}
+		}
+
+		if (last(state) === 'expression') {
+			if (/}/.test(value[index]) && curly_depth === 0) {
+				state.pop();
+				index++;
+				continue run;
+			}
+
+			if (/{/.test(value[index])) curly_depth++;
+			if (/}/.test(value[index])) curly_depth--;
+
+			current.value += value[index];
+			index++;
+			continue run;
 		}
 
 		if (/>/.test(value[index])) {

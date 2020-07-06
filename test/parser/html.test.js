@@ -118,4 +118,65 @@ html('parses multiple attributes on a void element', () => {
 	});
 });
 
+html('parses attribute expressions', () => {
+	const result = remark_mdsvex(eat, `<img class={foo} class="myclass" >`);
+	assert.equal(result, {
+		value: `<img class={foo} class="myclass" >`,
+		node: {
+			type: 'el',
+			name: 'img',
+			pos: [0, 33],
+
+			attrs: [
+				{
+					type: 'expression',
+					pos: [5, 15],
+					value: 'foo',
+					name: 'class',
+				},
+				{
+					type: 'attr',
+					pos: [17, 31],
+					value: 'myclass',
+					name: 'class',
+				},
+			],
+			children: [],
+			self_closing: true,
+		},
+	});
+});
+
+html('parses attribute expressions: with curlies', () => {
+	const result = remark_mdsvex(
+		eat,
+		`<img class={() => {booooo}} class="myclass" >`
+	);
+	assert.equal(result, {
+		value: `<img class={() => {booooo}} class="myclass" >`,
+		node: {
+			type: 'el',
+			name: 'img',
+			pos: [0, 44],
+
+			attrs: [
+				{
+					type: 'expression',
+					pos: [5, 26],
+					value: '() => {booooo}',
+					name: 'class',
+				},
+				{
+					type: 'attr',
+					pos: [28, 42],
+					value: 'myclass',
+					name: 'class',
+				},
+			],
+			children: [],
+			self_closing: true,
+		},
+	});
+});
+
 html.run();
