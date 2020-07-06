@@ -13,6 +13,7 @@ export function remark_mdsvex(eat, value, silent) {
 	let node;
 	let current;
 	const state = [];
+	let in_quote = false;
 
 	if (!/^\s*[<{}]/.test(value)) return;
 	if (silent) return true;
@@ -42,6 +43,62 @@ export function remark_mdsvex(eat, value, silent) {
 				state.pop();
 				node.self_closing = true;
 			}
+
+			if (/\s/.test(value[index])) {
+				state.pop();
+				state.push('open_tag');
+				index++;
+			}
+		}
+
+		if (last(state) === 'open_tag') {
+			if (/\w/.test(value[index])) {
+				state.push('attr');
+				current = { type: 'attr', name: '', pos: [index], value: '' };
+				node.attrs.push(current);
+			}
+		}
+
+		if (last(state) === 'attr') {
+			if (/\w/.test(value[index])) {
+				current.name += value[index];
+			}
+			if (/=/.test(value[index])) {
+				state.pop();
+				state.push('attr_value');
+				index++;
+			}
+			if (/[\s>]/.test(value[index])) {
+				state.pop();
+				current.value = 'true';
+				current.pos.push(index - 1);
+			}
+		}
+
+		if (last(state) === 'attr_value') {
+			if (in_quote) {
+				if (/"/.test(value[index])) {
+					in_quote = false;
+					index++;
+					continue run;
+				} else current.value += value[index];
+			} else {
+				// if (/\{/.test(source[index])) {
+				// 	state = 'exp_value';
+				// 	current.exp = true;
+				// 	index++;
+				// 	continue run;
+				// }
+				if (/"/.test(value[index])) {
+					in_quote = true;
+					index++;
+					continue run;
+				}
+				if (/[\s>]/.test(value[index])) {
+					state.pop();
+					current.pos.push(index - 1);
+				} else current.value += value[index];
+			}
 		}
 
 		if (/>/.test(value[index])) {
@@ -53,11 +110,11 @@ export function remark_mdsvex(eat, value, silent) {
 		}
 
 		index++;
-
-		function last(arr) {
-			return arr[arr.length - 1];
-		}
 	}
 
 	return eat(value)(node);
+}
+
+function last(arr) {
+	return arr[arr.length - 1];
 }

@@ -43,14 +43,21 @@ html('parses a void element without a closing slash', () => {
 html('parses attributes', () => {
 	const result = remark_mdsvex(eat, `<img class="myclass" />`);
 	assert.equal(result, {
-		value: `<img />`,
+		value: `<img class="myclass" />`,
 		node: {
 			type: 'el',
 			name: 'img',
 			children: [],
-			attrs: [],
+			attrs: [
+				{
+					type: 'attr',
+					pos: [5, 19],
+					value: 'myclass',
+					name: 'class',
+				},
+			],
 			self_closing: true,
-			pos: [0, 6],
+			pos: [0, 22],
 		},
 	});
 });
