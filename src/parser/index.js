@@ -33,6 +33,19 @@ export function remark_mdsvex(eat, value, silent) {
 			node = current;
 		}
 
+		if (!state.length && /\{/.test(value[index])) {
+			state.push('expression');
+			current = { type: 'expression', value: '', pos: [index] };
+			node = current;
+			index++;
+			continue run;
+		}
+
+		if (!state.length) {
+			node.pos.push(index - 1);
+			break;
+		}
+
 		if (last(state) === 'tag_start') {
 			if (/\w/.test(value[index])) state.push('open_tag_start');
 			if (/\//.test(value[index])) state.push('close_tag_start');
@@ -116,6 +129,12 @@ export function remark_mdsvex(eat, value, silent) {
 			index++;
 			continue run;
 		}
+
+		// if (/\}/.test(value[index])) {
+		// 	state.pop();
+		// 	node.pos.push(index);
+		// 	break;
+		// }
 
 		if (/>/.test(value[index])) {
 			if (void_els.includes(node.name)) {

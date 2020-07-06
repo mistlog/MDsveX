@@ -179,4 +179,16 @@ html('parses attribute expressions: with curlies', () => {
 	});
 });
 
+html('parses raw expressions', () => {
+	const result = remark_mdsvex(eat, `{foo}`);
+	assert.equal(result, {
+		value: '{foo}',
+		node: {
+			type: 'expression',
+			pos: [0, 4],
+			value: 'foo',
+		},
+	});
+});
+
 html.run();
