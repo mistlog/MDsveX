@@ -191,4 +191,51 @@ html('parses raw expressions', () => {
 	});
 });
 
+html('parses html tag pairs', () => {
+	const result = remark_mdsvex(eat, `<h1></h1>`);
+	assert.equal(result, {
+		value: '<h1></h1>',
+		node: {
+			type: 'el',
+			pos: [0, 8],
+			name: 'h1',
+			attrs: [],
+			children: [],
+			self_closing: false,
+		},
+	});
+});
+
+html('parses html tag pairs with attributes', () => {
+	const result = remark_mdsvex(
+		eat,
+		`<h1 class={() => {booooo}} class="myclass"></h1>`
+	);
+
+	assert.equal(result, {
+		value: '<h1 class={() => {booooo}} class="myclass"></h1>',
+		node: {
+			type: 'el',
+			pos: [0, 47],
+			name: 'h1',
+			attrs: [
+				{
+					type: 'expression',
+					pos: [4, 25],
+					value: '() => {booooo}',
+					name: 'class',
+				},
+				{
+					type: 'attr',
+					pos: [27, 41],
+					value: 'myclass',
+					name: 'class',
+				},
+			],
+			children: [],
+			self_closing: false,
+		},
+	});
+});
+
 html.run();

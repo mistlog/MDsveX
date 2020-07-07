@@ -1,4 +1,5 @@
 import { void_els } from './void_els';
+import { run } from 'svelte/internal';
 
 // custom mdsvex parse
 // handles html-ish and { expression } syntax
@@ -8,29 +9,24 @@ import { void_els } from './void_els';
 // open_tag_start | open_tag | attr | attr_value | expression
 // close_tag_start
 export function remark_mdsvex(eat, value, silent) {
-	let end = false;
 	let index = 0;
 	let node;
 	let current;
 	const state = [];
 	let in_quote = false;
 	let curly_depth = 0;
+	let name = '';
 
 	if (!/^\s*[<{}]/.test(value)) return;
 	if (silent) return true;
 
-	run: while (!end) {
-		if (/</.test(value[index])) {
+	run: for (;;) {
+		if (last(state) !== 'child' && /</.test(value[index])) {
 			state.push('tag_start');
-			current = {
-				type: 'el',
-				name: '',
-				pos: [index],
-				attrs: [],
-				children: [],
-				self_closing: false,
-			};
-			node = current;
+		}
+
+		if (last(state) === 'child' && /</.test(value[index])) {
+			state.push('tag_start');
 		}
 
 		if (!state.length && /\{/.test(value[index])) {
@@ -47,12 +43,28 @@ export function remark_mdsvex(eat, value, silent) {
 		}
 
 		if (last(state) === 'tag_start') {
-			if (/\w/.test(value[index])) state.push('open_tag_start');
-			if (/\//.test(value[index])) state.push('close_tag_start');
+			if (/\w/.test(value[index])) {
+				state.push('open_tag_start');
+				current = {
+					type: 'el',
+					name: '',
+					pos: [index - 1],
+					attrs: [],
+					children: [],
+					self_closing: false,
+				};
+				node = current;
+			}
+			if (/\//.test(value[index])) state.push('close_tag');
+			if (/\s/.test(value[index])) {
+				throw new Error(
+					'Expected a valid tagName for an opening tag or "/" character for a closing tag. Opening tags must have a valid name and closing tags must not contain a space immediately after the opening "<".'
+				);
+			}
 		}
 
 		if (last(state) === 'open_tag_start') {
-			if (/\w/.test(value[index])) current.name += value[index];
+			if (/[\w]/.test(value[index])) current.name += value[index];
 			if (/\//.test(value[index])) {
 				state.pop();
 				node.self_closing = true;
@@ -62,6 +74,31 @@ export function remark_mdsvex(eat, value, silent) {
 				state.pop();
 				state.push('open_tag');
 				index++;
+			}
+		}
+
+		if (last(state) === 'close_tag') {
+			if (/\s/.test(value[index])) {
+				index++;
+				continue run;
+			}
+
+			if (/\w/.test(value[index])) name += value[index];
+
+			if (/\s/.test(value[index])) {
+				index++;
+				continue run;
+			}
+
+			if (/\>/.test(value[index])) {
+				if (node.name !== name) {
+					console.log(node);
+					throw new Error(
+						`expected closing tagName ${node.name} but instead got ${name}. At offset ${index}`
+					);
+				}
+				node.pos.push(index);
+				break;
 			}
 		}
 
@@ -130,15 +167,14 @@ export function remark_mdsvex(eat, value, silent) {
 			continue run;
 		}
 
-		// if (/\}/.test(value[index])) {
-		// 	state.pop();
-		// 	node.pos.push(index);
-		// 	break;
-		// }
-
 		if (/>/.test(value[index])) {
 			if (void_els.includes(node.name)) {
 				node.self_closing = true;
+			}
+			if (!node.self_closing) {
+				state.push('child');
+				index++;
+				continue run;
 			}
 			node.pos.push(index);
 			break;
