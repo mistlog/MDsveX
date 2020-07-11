@@ -1,5 +1,4 @@
 import { void_els } from './void_els';
-import { run } from 'svelte/internal';
 
 // custom mdsvex parse
 // handles html-ish and { expression } syntax
@@ -8,8 +7,13 @@ import { run } from 'svelte/internal';
 // tag_start | tag_end
 // open_tag_start | open_tag | attr | attr_value | expression
 // close_tag_start
-export function remark_mdsvex(eat, value, silent) {
+const lineFeed = 10;
+
+export function remark_mdsvex(eat, value, silent, block) {
+	// let tokenizer = this.prototype[`${block ? 'block' : inline}Tokenziers`];
 	let index = 0;
+	const place = Object.assign(eat.now(), { index });
+
 	let node;
 	let current;
 	const state = [];
@@ -17,12 +21,34 @@ export function remark_mdsvex(eat, value, silent) {
 	let curly_depth = 0;
 	let name = '';
 
+	function now() {
+		return Object.assign({}, place);
+	}
+
+	function consume() {
+		// Line ending; assumes CR is not used (remark removes those).
+		if (value.charCodeAt(index) === lineFeed) {
+			place.line++;
+			place.column = 1;
+		}
+		// Anything else.
+		else {
+			place.column++;
+		}
+
+		index++;
+
+		place.offset++;
+		place.index = index;
+	}
+
 	if (!/^\s*[<{}]/.test(value)) return;
 	if (silent) return true;
 
 	run: for (;;) {
 		if (last(state) !== 'child' && /</.test(value[index])) {
 			state.push('tag_start');
+			consume();
 		}
 
 		if (last(state) === 'child' && /</.test(value[index])) {
@@ -31,14 +57,14 @@ export function remark_mdsvex(eat, value, silent) {
 
 		if (!state.length && /\{/.test(value[index])) {
 			state.push('expression');
-			current = { type: 'expression', value: '', pos: [index] };
+			current = { type: 'expression', value: '', position: { start: now() } };
 			node = current;
-			index++;
+			consume();
 			continue run;
 		}
 
 		if (!state.length) {
-			node.pos.push(index - 1);
+			node.position.end = now();
 			break;
 		}
 
@@ -48,11 +74,16 @@ export function remark_mdsvex(eat, value, silent) {
 				current = {
 					type: 'el',
 					name: '',
-					pos: [index - 1],
 					attrs: [],
 					children: [],
 					self_closing: false,
+					position: { start: now() },
 				};
+
+				current.position.start.offset -= 1;
+				current.position.start.column -= 1;
+				current.position.start.index -= 1;
+
 				node = current;
 			}
 			if (/\//.test(value[index])) state.push('close_tag');
@@ -73,31 +104,30 @@ export function remark_mdsvex(eat, value, silent) {
 			if (/\s/.test(value[index])) {
 				state.pop();
 				state.push('open_tag');
-				index++;
+				consume();
 			}
 		}
 
 		if (last(state) === 'close_tag') {
 			if (/\s/.test(value[index])) {
-				index++;
+				consume();
 				continue run;
 			}
 
 			if (/\w/.test(value[index])) name += value[index];
 
 			if (/\s/.test(value[index])) {
-				index++;
+				consume();
 				continue run;
 			}
 
 			if (/\>/.test(value[index])) {
 				if (node.name !== name) {
-					console.log(node);
 					throw new Error(
 						`expected closing tagName ${node.name} but instead got ${name}. At offset ${index}`
 					);
 				}
-				node.pos.push(index);
+				node.position.end = now();
 				break;
 			}
 		}
@@ -105,8 +135,19 @@ export function remark_mdsvex(eat, value, silent) {
 		if (last(state) === 'open_tag') {
 			if (/\w/.test(value[index])) {
 				state.push('attr');
-				current = { type: 'attr', name: '', pos: [index], value: '' };
+				current = {
+					type: 'attr',
+					name: '',
+					value: '',
+					position: { start: now() },
+				};
 				node.attrs.push(current);
+			}
+
+			if (/\//.test(value[index])) {
+				state.pop();
+				node.self_closing = true;
+				consume();
 			}
 		}
 
@@ -117,12 +158,12 @@ export function remark_mdsvex(eat, value, silent) {
 			if (/=/.test(value[index])) {
 				state.pop();
 				state.push('attr_value');
-				index++;
+				consume();
 			}
 			if (/[\s>]/.test(value[index])) {
 				state.pop();
 				current.value = 'true';
-				current.pos.push(index - 1);
+				current.position.end = now();
 			}
 		}
 
@@ -130,24 +171,24 @@ export function remark_mdsvex(eat, value, silent) {
 			if (in_quote) {
 				if (/"/.test(value[index])) {
 					in_quote = false;
-					index++;
+					consume();
 					continue run;
 				} else current.value += value[index];
 			} else {
 				if (/\{/.test(value[index])) {
 					state.push('expression');
 					current.type = 'expression';
-					index++;
+					consume();
 					continue run;
 				}
 				if (/"/.test(value[index])) {
 					in_quote = true;
-					index++;
+					consume();
 					continue run;
 				}
 				if (/[\s>]/.test(value[index])) {
 					state.pop();
-					current.pos.push(index - 1);
+					current.position.end = now();
 				} else current.value += value[index];
 			}
 		}
@@ -155,7 +196,7 @@ export function remark_mdsvex(eat, value, silent) {
 		if (last(state) === 'expression') {
 			if (/}/.test(value[index]) && curly_depth === 0) {
 				state.pop();
-				index++;
+				consume();
 				continue run;
 			}
 
@@ -163,7 +204,7 @@ export function remark_mdsvex(eat, value, silent) {
 			if (/}/.test(value[index])) curly_depth--;
 
 			current.value += value[index];
-			index++;
+			consume();
 			continue run;
 		}
 
@@ -173,14 +214,14 @@ export function remark_mdsvex(eat, value, silent) {
 			}
 			if (!node.self_closing) {
 				state.push('child');
-				index++;
+				consume();
 				continue run;
 			}
-			node.pos.push(index);
+			node.position.end = now();
 			break;
 		}
 
-		index++;
+		consume();
 	}
 
 	return eat(value)(node);
